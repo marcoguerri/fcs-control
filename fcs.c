@@ -154,7 +154,7 @@ uint8_t* str_to_mac(char *str)
             if(digit == -1)
                 goto err;
             mac[out_index] += digit * mul_factor;
-            mul_factor = mul_factor == 0x10 ? 0x1 : 0xF;
+            mul_factor = mul_factor == 0x10 ? 0x1 : 0x10;
         }
         c = str[++in_index];
     }
