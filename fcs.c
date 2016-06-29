@@ -28,9 +28,55 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-
 #define MAC_STR_LEN 17
 #define MAC_BYTE_LEN 6
+
+uint32_t reflect(uint32_t in_byte) {
+    uint32_t temp = 0;
+    uint32_t i;
+    for(i = 0; i < 16; i++ )
+    {
+        temp = temp | ((in_byte & (0x80000000 >> i)) >> (31-2*i))
+                    | ((in_byte & (0x00000001 << i)) << (31-2*i));
+    }
+    return temp;
+}
+
+/**
+ * CRC32 calculation for IEEE 802.3.
+ * Requirements:
+ * - Initialization of the shift register with 0xFFFFFFFF
+ * - Bytewise reflection before feeding the shift register
+ * - Reflection of the result
+ * - Inversion of the result
+ * - Final result is converted to BigEndian
+ * 
+ * After these steps, if the receiver feeds the shift register with the data
+ * transmitted one byte at at time LSB first, if the CRC is correct it should
+ * obtain the magic number 0xC704DD7B.
+ */
+uint32_t crc32(char *message, uint8_t msg_len) {
+
+    uint32_t remainder = 0xFFFFFFFF;
+    uint32_t poly = 0x04C11DB7;
+    uint8_t current_bit, i, j,  _xor;
+
+    for(j=0; j<msg_len; j++) 
+    {
+        for(i=0; i<8; i++) 
+        {
+             current_bit = (message[j] >> i) & 0x1;
+            _xor = ((remainder >> 31) ^ current_bit);
+            remainder = (remainder << 1);
+            if(_xor == 1)
+                remainder = remainder ^ poly;
+        }
+    }
+
+    remainder = ~reflect(remainder);
+    return  (remainder & 0xFF) << 24 | (remainder & 0xFF00) << 8 |
+            (remainder & 0xFF000000) >> 24 | (remainder & 0x00FF0000) >> 8;
+}
 
 int8_t hex_to_dec(char c)
 {
@@ -90,7 +136,6 @@ int8_t hex_to_dec(char c)
 uint8_t* str_to_mac(char *str)
 {
     assert(str != NULL && strlen(str) == MAC_STR_LEN);
-    
     uint8_t mul_factor = 0x10, out_index = 0, in_index = 0;
     uint8_t *mac = (uint8_t*)malloc(sizeof(uint8_t) * MAC_BYTE_LEN);
     memset(mac, 0x0, MAC_BYTE_LEN);
@@ -132,6 +177,8 @@ main(int argc, char *argv[])
     char *intf = NULL;
     char *mac_str  = NULL;
 
+    uint8_t *dest_mac = NULL;
+
     while ( (c = getopt(argc, argv, "i:m:")) != -1) {
         switch (c) {
         case 'i':
@@ -156,8 +203,8 @@ main(int argc, char *argv[])
                 fprintf(stderr, "MAC address is malformed\n");
                 return EXIT_FAILURE;
             }
-            uint8_t *mac = str_to_mac(mac_str);
-            if(mac == NULL)
+            dest_mac = str_to_mac(mac_str);
+            if(dest_mac == NULL)
             {
                 fprintf(stderr, "Destination MAC is malformed\n");
                 return EXIT_FAILURE;
@@ -169,9 +216,8 @@ main(int argc, char *argv[])
             break;
         }
     }
-    
     assert(intf != NULL && mac_str != NULL);
-        
+
     /* Create packet socket for sending layer 2 frames. SOCK_RAW indicates packet with
      * link level header, passed to the device driver without any change in the packet
      * data. */
@@ -201,7 +247,7 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    unsigned int optval = 1;    
+    unsigned int optval = 1;
     /* Change option at socket level (SOL_SOCKET) */
     if(setsockopt(sock_fd, SOL_SOCKET, 43, (void*)&optval, sizeof(optval)) < 0)
     {
@@ -213,43 +259,39 @@ main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    char buff[21];
- 
-    buff[0] = 0xFC;
-    buff[1] = 0xAA;
-    buff[2] = 0x14;
-    buff[3] = 0xE4;
-    buff[4] = 0x97;
-    buff[5] = 0x14;
-    
-    buff[6]  = 0xAA;
-    buff[7]  = 0xBB;
-    buff[8]  = 0xCC;
-    buff[9]  = 0xDD;
-    buff[10] = 0xEE;
-    buff[11] = 0xFF;
+    /* Building the frame */
+    uint8_t frame[64];
 
-    buff[12] = 0x12;
-    buff[13] = 0x13;
+    /* Dest MAC address */
+    memcpy(frame, dest_mac, MAC_BYTE_LEN);
 
-    buff[14] = 0x66;
-    buff[15] = 0x66;
-    buff[16] = 0x66;
+    /* Receiver MAC address */
+    uint8_t src_mac[MAC_BYTE_LEN] = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF};
+    memcpy(frame + MAC_BYTE_LEN, src_mac, MAC_BYTE_LEN);
 
-    buff[17] = 0xDE;
-    buff[18] = 0xAD;
-    buff[19] = 0xBE;
-    buff[20] = 0xEF;
+    /* Type */
+    frame[12] = 0x12;
+    frame[13] = 0x13;
 
-    if(sendto(sock_fd, buff, 21, 0, NULL, 0) < 0)
+    /* Minimum payload lenght for Ethernet frame is 46 bytes */
+    memset((void*)frame+14, 0x33, 46);
+
+    /* Frame Check Sequence */
+    uint32_t fcs = crc32(frame, 60);
+    printf("%x\n", fcs);
+    memcpy(frame+60, &fcs, 4);
+    //frame[60] = 0xDE;
+    //frame[61] = 0xAD;
+    //frame[62] = 0xBE;
+    //frame[63] = 0xEF;
+
+    if(sendto(sock_fd, frame, 64, 0, NULL, 0) < 0)
     {
         perror("sendto");
         return EXIT_FAILURE;
-    }   
+    }
 
     fprintf(stderr, "Message sent correctly\n");
     return EXIT_SUCCESS;
-
-
 }
 
