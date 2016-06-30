@@ -49,12 +49,12 @@ uint32_t reflect(uint32_t in_byte) {
  * - Bytewise reflection before feeding the shift register
  * - Reflection of the result
  * - Inversion of the result
- * - Final result is converted to BigEndian
  * 
  * After these steps, if the receiver feeds the shift register with the data
- * transmitted one byte at at time LSB first, if the CRC is correct it should
- * obtain the magic number 0xC704DD7B.
+ * transmitted one byte at at time LSB first (apart from CRC which is transmitted
+ * MSB first) if the CRC is correct it should obtain the magic number 0xC704DD7B.
  */
+
 uint32_t crc32(char *message, uint8_t msg_len) {
 
     uint32_t remainder = 0xFFFFFFFF;
@@ -74,8 +74,9 @@ uint32_t crc32(char *message, uint8_t msg_len) {
     }
 
     remainder = ~reflect(remainder);
-    return  (remainder & 0xFF) << 24 | (remainder & 0xFF00) << 8 |
-            (remainder & 0xFF000000) >> 24 | (remainder & 0x00FF0000) >> 8;
+    return remainder;
+    //return  (remainder & 0xFF) << 24 | (remainder & 0xFF00) << 8 |
+    //        (remainder & 0xFF000000) >> 24 | (remainder & 0x00FF0000) >> 8;
 }
 
 int8_t hex_to_dec(char c)
@@ -178,8 +179,10 @@ main(int argc, char *argv[])
     char *mac_str  = NULL;
 
     uint8_t *dest_mac = NULL;
+    uint8_t corrupt = 0;
 
-    while ( (c = getopt(argc, argv, "i:m:")) != -1) {
+    
+    while ( (c = getopt(argc, argv, "i:m:c")) != -1) {
         switch (c) {
         case 'i':
             intf  = strdup(optarg);
@@ -211,6 +214,9 @@ main(int argc, char *argv[])
             }
             fprintf(stderr, "Destination MAC address is %s\n", mac_str);
             break;
+        case 'c':
+            corrupt = 1;
+            break;
 
         default:
             break;
@@ -231,7 +237,7 @@ main(int argc, char *argv[])
     struct sockaddr_ll link_level_hdr = {
         .sll_family = AF_PACKET,
         .sll_protocol = htons(0x1234),
-        .sll_ifindex = if_nametoindex("ens20f1"),
+        .sll_ifindex = if_nametoindex(intf),
     };
 
     if(link_level_hdr.sll_ifindex == 0)
@@ -277,13 +283,17 @@ main(int argc, char *argv[])
     memset((void*)frame+14, 0x33, 46);
 
     /* Frame Check Sequence */
-    uint32_t fcs = crc32(frame, 60);
-    printf("%x\n", fcs);
-    memcpy(frame+60, &fcs, 4);
-    //frame[60] = 0xDE;
-    //frame[61] = 0xAD;
-    //frame[62] = 0xBE;
-    //frame[63] = 0xEF;
+    if(corrupt) 
+    {
+        uint32_t crc_corrupted = 0xDEADBEEF;
+        memset(frame + 60, 0xDEADBEEF, 4);
+    } 
+    else
+    {
+        uint32_t fcs = crc32(frame, 60);
+        fprintf(stderr, "crc: %x\n", fcs);
+        memcpy(frame+60, &fcs, 4);
+    }
 
     if(sendto(sock_fd, frame, 64, 0, NULL, 0) < 0)
     {
