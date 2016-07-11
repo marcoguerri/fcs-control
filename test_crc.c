@@ -15,12 +15,21 @@
  * Author: Marco Guerri <gmarco.dev@gmail.com>
  */
 
-
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include "crc.h"
 #include "test.h"
+
+extern uint8_t *binary_test1_start;
+extern uint8_t *binary_test2_start;
+
+typedef struct {
+    uint8_t const *buffer;
+    uint32_t len;
+    uint32_t crc32;
+
+} test;
 
 char *message =  "Nel mezzo del cammin di nostra vita mi ritrovai per una selva oscura";
 
@@ -67,6 +76,19 @@ compute_crc32_table()
 int
 main(int argc, char *argv[])
 {
+
+    test test1 = {
+        .buffer = binary_test1_start,
+        .len = 60,
+        .crc32 = 0x11d056c3,
+    };
+    
+    test test2 = {
+        .buffer = binary_test2_start,
+        .len = 60,
+        .crc32 = 0xbb32734,
+    };
+    
     //compute_crc32_table();
     test_crc32_returns_correct_value();
     test_crc32_fast_returns_same_result_as_crc32();

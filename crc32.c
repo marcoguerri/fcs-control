@@ -52,7 +52,7 @@ reflect8(uint8_t in_byte)
  */
 
 uint32_t
-crc32(char *message, uint8_t msg_len) {
+_crc32(char *message, uint8_t msg_len) {
 
     uint32_t remainder = 0xFFFFFFFF;
     //uint32_t remainder = 0x00000000;
