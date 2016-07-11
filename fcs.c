@@ -19,6 +19,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <time.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -27,6 +29,7 @@
 #include <linux/if_packet.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <fcntl.h>
 
 #define MAC_STR_LEN 17
 #define MAC_BYTE_LEN 6
@@ -171,7 +174,7 @@ err:
 int 
 main(int argc, char *argv[])
 {
-    int c;
+    int c, i;
     extern char *optarg;
     extern int optind, optopt;
     
@@ -254,7 +257,9 @@ main(int argc, char *argv[])
     }
 
     unsigned int optval = 1;
-    /* Change option at socket level (SOL_SOCKET) */
+    /* Change option at socket level (SOL_SOCKET). Frame must be at least 64 bytes 
+     * in total or SOL_SOCKET will be basically ignored and CRC will be appended */
+
     if(setsockopt(sock_fd, SOL_SOCKET, 43, (void*)&optval, sizeof(optval)) < 0)
     {
         if(errno == -ENOPROTOOPT)
@@ -263,7 +268,8 @@ main(int argc, char *argv[])
         perror("setsocketopt");
 
         return EXIT_FAILURE;
-    }
+    } 
+    srand (time(NULL));
 
     /* Building the frame */
     uint8_t frame[64];
@@ -280,7 +286,10 @@ main(int argc, char *argv[])
     frame[13] = 0x13;
 
     /* Minimum payload lenght for Ethernet frame is 46 bytes */
-    memset((void*)frame+14, 0x33, 46);
+    for(i=14; i<=46; i++)
+        frame[i] = rand() % 0xFF;
+
+    //memset((void*)frame+14, 0x33, 46);
 
     /* Frame Check Sequence */
     if(corrupt) 
@@ -292,10 +301,11 @@ main(int argc, char *argv[])
     {
         uint32_t fcs = crc32(frame, 60);
         fprintf(stderr, "crc: %x\n", fcs);
-        memcpy(frame+60, &fcs, 4);
+        memcpy(frame+59, &fcs, 4);
     }
 
-    if(sendto(sock_fd, frame, 64, 0, NULL, 0) < 0)
+    
+    if(sendto(sock_fd, frame, 60, 0, NULL, 0) < 0)
     {
         perror("sendto");
         return EXIT_FAILURE;
