@@ -34,54 +34,6 @@
 #define MAC_STR_LEN 17
 #define MAC_BYTE_LEN 6
 
-uint32_t reflect(uint32_t in_byte) {
-    uint32_t temp = 0;
-    uint32_t i;
-    for(i = 0; i < 16; i++ )
-    {
-        temp = temp | ((in_byte & (0x80000000 >> i)) >> (31-2*i))
-                    | ((in_byte & (0x00000001 << i)) << (31-2*i));
-    }
-    return temp;
-}
-
-/**
- * CRC32 calculation for IEEE 802.3.
- * Requirements:
- * - Initialization of the shift register with 0xFFFFFFFF
- * - Bytewise reflection before feeding the shift register
- * - Reflection of the result
- * - Inversion of the result
- * 
- * After these steps, if the receiver feeds the shift register with the data
- * transmitted one byte at at time LSB first (apart from CRC which is transmitted
- * MSB first) if the CRC is correct it should obtain the magic number 0xC704DD7B.
- */
-
-uint32_t crc32(char *message, uint8_t msg_len) {
-
-    uint32_t remainder = 0xFFFFFFFF;
-    uint32_t poly = 0x04C11DB7;
-    uint8_t current_bit, i, j,  _xor;
-
-    for(j=0; j<msg_len; j++) 
-    {
-        for(i=0; i<8; i++) 
-        {
-             current_bit = (message[j] >> i) & 0x1;
-            _xor = ((remainder >> 31) ^ current_bit);
-            remainder = (remainder << 1);
-            if(_xor == 1)
-                remainder = remainder ^ poly;
-        }
-    }
-
-    remainder = ~reflect(remainder);
-    return remainder;
-    //return  (remainder & 0xFF) << 24 | (remainder & 0xFF00) << 8 |
-    //        (remainder & 0xFF000000) >> 24 | (remainder & 0x00FF0000) >> 8;
-}
-
 int8_t hex_to_dec(char c)
 {
     switch(c)

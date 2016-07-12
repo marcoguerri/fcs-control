@@ -21,35 +21,33 @@
 #include "crc.h"
 #include "test.h"
 
-extern uint8_t *binary_test1_start;
-extern uint8_t *binary_test2_start;
+extern uint8_t *_binary_test1_start;
+extern uint8_t *_binary_test2_start;
+extern uint8_t *_binary_test3_start;
 
 typedef struct {
-    uint8_t const *buffer;
+    uint8_t *buffer;
     uint32_t len;
     uint32_t crc32;
 
-} test;
+} testcase;
 
 char *message =  "Nel mezzo del cammin di nostra vita mi ritrovai per una selva oscura";
 
 uint32_t 
-test_crc32_returns_correct_value()
+test_crc32_returns_correct_value(testcase* test)
 {
-    uint32_t temp = crc32(message, strlen(message));
-    _assert(temp == 0xcf2a3882);
+    uint32_t temp = crc32_ethernet(crc32(test->buffer, test->len));
+    _assert(temp == test->crc32);
     return 0;
 }
 
 uint32_t
-test_crc32_fast_returns_same_result_as_crc32()
+test_crc32_fast_returns_same_result_as_crc32(testcase* test)
 {
 
-    uint32_t temp = crc32(message, strlen(message));
-    uint32_t temp2 = crc32_fast(message, strlen(message));
-    printf("%x\n", temp2);
-    printf("Correct %x\n", temp);
-    _assert(temp == temp2);
+    _assert(crc32_ethernet(crc32(test->buffer, test->len)) == 
+            crc32_ethernet(crc32_fast(test->buffer, test->len)));
     return 0;
 
 
@@ -62,14 +60,12 @@ compute_crc32_table()
     while(temp != 255)
     {
         if(temp % 4 == 0)
-        {
             printf("\n");
-        }
-        printf("0x%.8x, ", crc32((char*)&temp, 1));
+        
+        printf("0x%.8x, ", crc32(&temp, 1));
         ++temp;
     }
-
-    printf("0x%.8x, ", crc32((char*)&temp, 1));
+    printf("0x%.8x, ", crc32(&temp, 1));
 }
 
 
@@ -77,20 +73,30 @@ int
 main(int argc, char *argv[])
 {
 
-    test test1 = {
-        .buffer = binary_test1_start,
+    testcase test1 = {
+        .buffer = (uint8_t*)&_binary_test1_start,
         .len = 60,
         .crc32 = 0x11d056c3,
     };
     
-    test test2 = {
-        .buffer = binary_test2_start,
+    testcase test2 = {
+        .buffer = (uint8_t*)&_binary_test2_start,
         .len = 60,
-        .crc32 = 0xbb32734,
+        .crc32 = 0xbb327374,
+    };
+   
+    testcase test3 = {
+        .buffer = (uint8_t*)&_binary_test3_start,
+        .len = 60,
+        .crc32 = 0x3e869219,
     };
     
     //compute_crc32_table();
-    test_crc32_returns_correct_value();
-    test_crc32_fast_returns_same_result_as_crc32();
+    test_crc32_returns_correct_value(&test1);
+    test_crc32_returns_correct_value(&test2);
+    test_crc32_returns_correct_value(&test3);
+    test_crc32_fast_returns_same_result_as_crc32(&test1);
+    test_crc32_fast_returns_same_result_as_crc32(&test2);
+    test_crc32_fast_returns_same_result_as_crc32(&test3);
     return 0;
 }
