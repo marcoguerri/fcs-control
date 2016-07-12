@@ -118,12 +118,13 @@ reflect8(uint8_t in_byte)
  */
 
 uint32_t
-crc32(uint8_t *message, uint8_t msg_len) {
+crc32(uint8_t *message, uint32_t msg_len) {
 
     uint32_t remainder = 0xFFFFFFFF;
     //uint32_t remainder = 0x00000000;
     uint32_t poly = 0x04C11DB7;
-    uint8_t current_bit, i, j,  _xor;
+    uint32_t i,j;
+    uint8_t current_bit, _xor;
 
     for(j=0; j<msg_len; j++)
     {
@@ -165,9 +166,9 @@ crc32_ethernet(uint32_t crc)
 
 
 uint32_t
-crc32_fast(uint8_t *message, uint8_t msg_len)
+crc32_fast(uint8_t *message, uint32_t msg_len)
 {
-    uint8_t j;
+    uint32_t j;
     uint32_t remainder = 0xFFFFFFFF;
     for(j=0; j<msg_len; j++)
         remainder = crc32_table[message[j] ^ (remainder & 0xFF)] ^ (remainder >> 8);
