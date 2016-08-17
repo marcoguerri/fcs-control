@@ -31,6 +31,8 @@
 #include <net/if.h>
 #include <fcntl.h>
 
+#include "libcrc/crc.h"
+
 #define MAC_STR_LEN 17
 #define MAC_BYTE_LEN 6
 
@@ -136,6 +138,7 @@ main(int argc, char *argv[])
     uint8_t *dest_mac = NULL;
     uint8_t corrupt = 0;
 
+    crc_params_t crc_params;
     
     while ( (c = getopt(argc, argv, "i:m:c")) != -1) {
         switch (c) {
@@ -238,26 +241,33 @@ main(int argc, char *argv[])
     frame[13] = 0x13;
 
     /* Minimum payload lenght for Ethernet frame is 46 bytes */
-    for(i=14; i<=46; i++)
-        frame[i] = rand() % 0xFF;
+    //for(i=14; i<60; i++)
+        //frame[i] =rand() % 0xFF;
 
-    //memset((void*)frame+14, 0x33, 46);
+    memset((void*)frame+14, 0x00, 46);
 
     /* Frame Check Sequence */
     if(corrupt) 
     {
         uint32_t crc_corrupted = 0xDEADBEEF;
-        memset(frame + 60, 0xDEADBEEF, 4);
+        memcpy(frame+60, &crc_corrupted, 4);
     } 
     else
     {
-        uint32_t fcs = crc32(frame, 60);
-        fprintf(stderr, "crc: %x\n", fcs);
-        memcpy(frame+59, &fcs, 4);
+        crc_params.type = CRC32;
+        crc_params.poly.poly_crc32 = 0x04C11DB7;
+        crc_params.crc_init.crc32 = 0xFFFFFFFF;
+        crc_params.flags = CRC_INPUT_REVERSAL |
+                           CRC_OUTPUT_REVERSAL |
+                           CRC_OUTPUT_INVERSION;
+    
+        crc_t fcs =  crc_fast(&crc_params, (uint8_t*)frame, 60);
+        fprintf(stderr, "crc: %x\n", htonl(fcs.crc32));
+        memcpy(frame+60, &fcs, 4);
     }
 
     
-    if(sendto(sock_fd, frame, 60, 0, NULL, 0) < 0)
+    if(sendto(sock_fd, frame, 64, 0, NULL, 0) < 0)
     {
         perror("sendto");
         return EXIT_FAILURE;
