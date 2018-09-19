@@ -31,6 +31,8 @@
 #include <net/if.h>
 #include <fcntl.h>
 
+#include <unistd.h>
+
 #include "libcrc/crc.h"
 
 #define MAC_STR_LEN 17
@@ -128,7 +130,7 @@ err:
 int 
 main(int argc, char *argv[])
 {
-    int c, i;
+    int c;
     extern char *optarg;
     extern int optind, optopt;
     
