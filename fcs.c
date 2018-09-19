@@ -14,6 +14,10 @@
  *
  * Author: Marco Guerri <gmarco.dev@gmail.com>
  */
+#include <signal.h>
+#include <sys/ioctl.h>
+#include <linux/if_ether.h>
+
 
 #include <stdio.h>
 #include <assert.h>
@@ -187,7 +191,7 @@ main(int argc, char *argv[])
     /* Create packet socket for sending layer 2 frames. SOCK_RAW indicates packet with
      * link level header, passed to the device driver without any change in the packet
      * data. */
-    int sock_fd = socket(PF_PACKET, SOCK_RAW, 0x1234);
+    int sock_fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if(sock_fd == -1)
     {
         perror("socket");
@@ -195,8 +199,8 @@ main(int argc, char *argv[])
     }
     
     struct sockaddr_ll link_level_hdr = {
-        .sll_family = AF_PACKET,
-        .sll_protocol = htons(0x1234),
+        .sll_family = PF_PACKET,
+        .sll_protocol = htons(ETH_P_ALL),
         .sll_ifindex = if_nametoindex(intf),
     };
 
