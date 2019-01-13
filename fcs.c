@@ -20,7 +20,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
-
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -31,7 +31,7 @@
 #include <net/if.h>
 #include <fcntl.h>
 
-#include "libcrc/crc.h"
+#include "crc.h"
 
 #define MAC_STR_LEN 17
 #define MAC_BYTE_LEN 6
@@ -128,7 +128,7 @@ err:
 int 
 main(int argc, char *argv[])
 {
-    int c, i;
+    int c;
     extern char *optarg;
     extern int optind, optopt;
     

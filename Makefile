@@ -4,14 +4,14 @@ OBJECTS := $(SOURCES:.c=.o)
 LIBCRC_DIR = libcrc
 OBJECTS += $(LIBCRC_DIR)/libcrc.a
 
-CFLAGS = -Wall -O0 -fPIC -D_GNU_SOURCE
+CFLAGS = -Wall -O0 -fPIC -D_GNU_SOURCE -I$(LIBCRC_DIR)/src
 LDLIBS = -ldl -lcrc
 LDFLAGS = -Llibcrc
 
 all: corrupt
 
 corrupt: $(OBJECTS) 
-	$(CC) $(OBJECTS) -o $@ $(LDIBS) $(FLAGS)
+	$(CC) $(OBJECTS) -o $@ $(LDIBS) $(CFLAGS)
 
 $(LIBCRC_DIR)/libcrc.a: 
 	make -C $(LIBCRC_DIR) libcrc.a 
