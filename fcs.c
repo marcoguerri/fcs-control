@@ -180,6 +180,14 @@ main(int argc, char *argv[])
             break;
         }
     }
+    if (mac_str == NULL) {
+        fprintf(stderr, "Dest MAC cannot be NULL (-m)\n");
+        return EXIT_FAILURE;
+    }
+    if (intf == NULL) {
+        fprintf(stderr, "Output interface cannot be NULL (-i)\n");
+        return EXIT_FAILURE;
+    }
     assert(intf != NULL && mac_str != NULL);
 
     /* Create packet socket for sending layer 2 frames. SOCK_RAW indicates packet with
@@ -241,9 +249,6 @@ main(int argc, char *argv[])
     frame[13] = 0x13;
 
     /* Minimum payload lenght for Ethernet frame is 46 bytes */
-    //for(i=14; i<60; i++)
-        //frame[i] =rand() % 0xFF;
-
     memset((void*)frame+14, 0x00, 46);
 
     /* Frame Check Sequence */
