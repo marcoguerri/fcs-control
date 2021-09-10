@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <time.h>
-
+#include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -35,9 +35,7 @@
 #include <net/if.h>
 #include <fcntl.h>
 
-#include <unistd.h>
-
-#include "libcrc/crc.h"
+#include "crc.h"
 
 #define MAC_STR_LEN 17
 #define MAC_BYTE_LEN 6
@@ -186,6 +184,14 @@ main(int argc, char *argv[])
             break;
         }
     }
+    if (mac_str == NULL) {
+        fprintf(stderr, "Dest MAC cannot be NULL (-m)\n");
+        return EXIT_FAILURE;
+    }
+    if (intf == NULL) {
+        fprintf(stderr, "Output interface cannot be NULL (-i)\n");
+        return EXIT_FAILURE;
+    }
     assert(intf != NULL && mac_str != NULL);
 
     /* Create packet socket for sending layer 2 frames. SOCK_RAW indicates packet with
@@ -247,9 +253,6 @@ main(int argc, char *argv[])
     frame[13] = 0x13;
 
     /* Minimum payload lenght for Ethernet frame is 46 bytes */
-    //for(i=14; i<60; i++)
-        //frame[i] =rand() % 0xFF;
-
     memset((void*)frame+14, 0x00, 46);
 
     /* Frame Check Sequence */
